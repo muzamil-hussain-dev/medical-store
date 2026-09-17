@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CureWell Pharma & Medical Store - POS & Inventory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        teal: { 50: '#f0fdfa', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            #receipt-printable-area,
+            #receipt-printable-area * {
+                visibility: visible;
+            }
+
+            #receipt-printable-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 80mm;
+                padding: 10px;
+                background: #fff;
+                color: #000;
+                font-family: 'JetBrains Mono', monospace;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 font-sans text-slate-800 antialiased h-full flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-teal-900 text-white shadow-md sticky top-0 z-30 flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white text-teal-900 p-2 rounded-lg font-bold">
+                        <i class="fa-solid fa-notes-medical text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-extrabold tracking-tight">CureWell Pharma & Medical Store</h1>
+                        <p class="text-xs text-teal-100">Pharmacy POS & Stock Accounting System</p>
+                    </div>
+                </div>
+                <nav class="flex space-x-2">
+                    <button onclick="switchTab('pos')" id="tab-btn-pos"
+                        class="px-3 py-1.5 rounded-md text-xs font-semibold bg-teal-800 text-white"><i
+                            class="fa-solid fa-cash-register mr-1"></i>POS</button>
+                    <button onclick="switchTab('inventory')" id="tab-btn-inventory"
+                        class="px-3 py-1.5 rounded-md text-xs font-semibold text-teal-100 hover:bg-teal-800"><i
+                            class="fa-solid fa-pills mr-1"></i>Stock</button>
+                    <button onclick="switchTab('analytics')" id="tab-btn-analytics"
+                        class="px-3 py-1.5 rounded-md text-xs font-semibold text-teal-100 hover:bg-teal-800"><i
+                            class="fa-solid fa-chart-pie mr-1"></i>Accounts</button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col overflow-hidden">
+        <!-- POS SECTION -->
+        <section id="sec-pos" class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+            <div class="lg:col-span-7 flex flex-col space-y-3 overflow-hidden">
+                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+                    <input type="text" id="pos-search" oninput="renderPosCatalog()"
+                        placeholder="Search Medicine by name or Formula..."
+                        class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-600">
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto pr-1 flex-grow" id="pos-grid"></div>
+            </div>
+
+            <!-- CART -->
+            <div class="lg:col-span-5 flex flex-col h-full">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
+                    <div class="p-3 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
+                        <h2 class="font-bold text-slate-800 text-sm"><i
+                                class="fa-solid fa-prescription-bottle-medical text-teal-700 mr-2"></i>Invoice Cart</h2>
+                        <button onclick="clearCart()"
+                            class="text-xs text-rose-600 font-semibold hover:underline">Clear</button>
+                    </div>
+                    <div class="p-3 flex-grow overflow-y-auto space-y-2" id="cart-items"></div>
+                    <div class="p-4 border-t bg-slate-50 space-y-2 rounded-b-xl">
+                        <div class="flex justify-between text-sm"><span>Subtotal</span><span id="cart-subtotal"
+                                class="font-mono font-semibold">₨ 0.00</span></div>
+                        <div class="flex justify-between text-sm items-center">
+                            <span>Discount (₨)</span>
+                            <input type="number" id="cart-discount" value="0" min="0" oninput="calculateTotal()"
+                                class="w-20 px-2 py-1 border rounded text-right font-mono text-xs outline-none">
+                        </div>
+                        <div class="flex justify-between text-lg font-extrabold text-slate-900 pt-2 border-t">
+                            <span>Total Payable</span><span id="cart-total" class="text-teal-700 font-mono">₨
+                                0.00</span>
+                        </div>
+                        <button onclick="processSale()"
+                            class="w-full mt-2 bg-teal-900 hover:bg-teal-800 text-white font-bold py-2.5 rounded-lg text-sm flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-print"></i><span>Generate Invoice & Print</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- INVENTORY SECTION -->
+        <section id="sec-inventory" class="hidden space-y-4 h-full flex flex-col">
+            <div class="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">Medicine Inventory & Batch Control</h2>
+                <button onclick="addMedicinePrompt()"
+                    class="bg-teal-900 text-white text-xs px-3 py-2 rounded-lg font-bold"><i
+                        class="fa-solid fa-plus mr-1"></i> Add New Medicine</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 overflow-y-auto flex-grow">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 border-b sticky top-0">
+                        <tr>
+                            <th class="p-3">Medicine</th>
+                            <th class="p-3">Batch No</th>
+                            <th class="p-3">Expiry</th>
+                            <th class="p-3">Price (PKR)</th>
+                            <th class="p-3">Stock</th>
+                            <th class="p-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-table-body" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ACCOUNTS SECTION -->
+        <section id="sec-analytics" class="hidden space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-xl border">
+                    <div class="text-xs text-slate-500 font-semibold">TOTAL REVENUE</div>
+                    <div class="text-2xl font-bold font-mono text-teal-900 mt-1" id="stat-revenue">₨ 0.00</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border">
+                    <div class="text-xs text-slate-500 font-semibold">PRESCRIPTIONS FILLED</div>
+                    <div class="text-2xl font-bold font-mono text-slate-800 mt-1" id="stat-orders">0</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border">
+                    <div class="text-xs text-slate-500 font-semibold">LOW STOCK ITEMS</div>
+                    <div class="text-2xl font-bold font-mono text-rose-600 mt-1" id="stat-low-stock">0</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- RECEIPT MODAL -->
+    <div id="receipt-modal"
+        class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-4 space-y-4">
+            <div id="receipt-printable-area" class="border p-4 font-mono text-xs text-black bg-slate-50">
+                <div class="text-center">
+                    <h2 class="font-extrabold text-sm">CUREWELL PHARMA</h2>
+                    <p class="text-[10px]">Main Market, Sahiwal | Ph: 040-1234567</p>
+                    <p class="text-[10px] border-t my-1 pt-1">INV #: <span id="rec-inv-no">#1001</span> | Date: <span
+                            id="rec-date">--</span></p>
+                </div>
+                <table class="w-full my-3 text-left">
+                    <thead class="border-b">
+                        <tr>
+                            <th>Med</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-right">PKR</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rec-items-body"></tbody>
+                </table>
+                <div class="border-t pt-2 font-bold text-sm flex justify-between"><span>TOTAL DUE:</span><span
+                        id="rec-total">₨ 0.00</span></div>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="window.print()"
+                    class="flex-1 bg-teal-900 text-white font-bold py-2 rounded-lg text-xs"><i
+                        class="fa-solid fa-print"></i> Print Receipt</button>
+                <button onclick="closeReceiptModal()"
+                    class="px-4 bg-slate-200 py-2 rounded-lg text-xs font-semibold">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let inventory = [
+            { id: 1, name: "Panadol Extra 500mg", batch: "BN-2024A", expiry: "2026-12", price: 35, stock: 150 },
+            { id: 2, name: "Brufen Syrup 120ml", batch: "BN-9982", expiry: "2025-08", price: 110, stock: 24 },
+            { id: 3, name: "Augmentin 625mg", batch: "BN-4431", expiry: "2026-05", price: 420, stock: 12 },
+            { id: 4, name: "Flygyl 400mg", batch: "BN-1022", expiry: "2026-10", price: 95, stock: 80 }
+        ];
+        let cart = [], salesHistory = [];
+
+        window.onload = function () { renderPosCatalog(); renderCart(); renderInventoryTable(); updateAnalytics(); };
+
+        function switchTab(tabId) {
+            ['pos', 'inventory', 'analytics'].forEach(id => document.getElementById(`sec-${id}`).classList.add('hidden'));
+            document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+        }
+
+        function renderPosCatalog() {
+            const grid = document.getElementById('pos-grid');
+            const search = document.getElementById('pos-search').value.toLowerCase();
+            grid.innerHTML = '';
+            inventory.filter(i => i.name.toLowerCase().includes(search)).forEach(item => {
+                grid.innerHTML += `
+                    <div onclick="addToCart(${item.id})" class="bg-white p-3 rounded-xl border border-slate-200 hover:border-teal-600 cursor-pointer flex flex-col justify-between">
+                        <div>
+                            <span class="text-[10px] font-mono text-slate-400">Exp: ${item.expiry}</span>
+                            <h3 class="font-bold text-xs text-slate-800 line-clamp-2">${item.name}</h3>
+                        </div>
+                        <div class="mt-2 flex justify-between items-center">
+                            <span class="font-bold text-teal-700 font-mono text-xs">₨ ${item.price}</span>
+                            <span class="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">${item.stock} left</span>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function addToCart(id) {
+            const product = inventory.find(p => p.id === id);
+            if (product.stock <= 0) return alert("Stock unavailable!");
+            const existing = cart.find(c => c.id === id);
+            if (existing) { existing.qty++; } else { cart.push({ ...product, qty: 1 }); }
+            renderCart();
+        }
+
+        function renderCart() {
+            const cartDiv = document.getElementById('cart-items');
+            cartDiv.innerHTML = cart.length === 0 ? '<div class="text-center text-slate-400 py-8 text-xs">No items added</div>' : '';
+            cart.forEach(item => {
+                cartDiv.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-50 p-2 rounded border text-xs">
+                        <div><h4 class="font-semibold">${item.name}</h4><span class="text-slate-500">₨ ${item.price} × ${item.qty}</span></div>
+                        <span class="font-mono font-bold">₨ ${(item.price * item.qty)}</span>
+                    </div>`;
+            });
+            calculateTotal();
+        }
+
+        function clearCart() { cart = []; renderCart(); }
+
+        function calculateTotal() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const discount = parseFloat(document.getElementById('cart-discount').value) || 0;
+            const total = Math.max(0, subtotal - discount);
+            document.getElementById('cart-subtotal').innerText = `₨ ${subtotal.toFixed(2)}`;
+            document.getElementById('cart-total').innerText = `₨ ${total.toFixed(2)}`;
+        }
+
+        function processSale() {
+            if (cart.length === 0) return alert("Cart empty!");
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            cart.forEach(cItem => { const inv = inventory.find(i => i.id === cItem.id); if (inv) inv.stock -= cItem.qty; });
+            salesHistory.push({ total });
+
+            document.getElementById('rec-inv-no').innerText = `#${1000 + salesHistory.length}`;
+            document.getElementById('rec-date').innerText = new Date().toLocaleDateString();
+            document.getElementById('rec-items-body').innerHTML = cart.map(i => `<tr><td>${i.name}</td><td class="text-center">${i.qty}</td><td class="text-right">₨ ${i.price * i.qty}</td></tr>`).join('');
+            document.getElementById('rec-total').innerText = `₨ ${total.toFixed(2)}`;
+            document.getElementById('receipt-modal').classList.remove('hidden');
+
+            cart = []; renderCart(); renderPosCatalog(); renderInventoryTable(); updateAnalytics();
+        }
+
+        function closeReceiptModal() { document.getElementById('receipt-modal').classList.add('hidden'); }
+
+        function renderInventoryTable() {
+            document.getElementById('inventory-table-body').innerHTML = inventory.map(i => `
+                <tr>
+                    <td class="p-3 font-bold text-xs">${i.name}</td>
+                    <td class="p-3 font-mono text-xs">${i.batch}</td>
+                    <td class="p-3 font-mono text-xs text-rose-600">${i.expiry}</td>
+                    <td class="p-3 font-mono text-xs">₨ ${i.price}</td>
+                    <td class="p-3 font-xs">${i.stock}</td>
+                    <td class="p-3 text-right"><button onclick="quickAdd(${i.id})" class="bg-teal-50 text-teal-700 px-2 py-1 text-xs rounded border border-teal-200">+ Stock</button></td>
+                </tr>`).join('');
+        }
+
+        function quickAdd(id) { const item = inventory.find(i => i.id === id); if (item) { item.stock += 10; renderInventoryTable(); renderPosCatalog(); updateAnalytics(); } }
+
+        function addMedicinePrompt() {
+            const name = prompt("Medicine Name:");
+            const price = parseFloat(prompt("Price in PKR:"));
+            const stock = parseInt(prompt("Stock Quantity:"));
+            if (name && price && stock) {
+                inventory.push({ id: Date.now(), name, batch: "BN-" + Math.floor(1000 + Math.random() * 9000), expiry: "2027-01", price, stock });
+                renderInventoryTable(); renderPosCatalog(); updateAnalytics();
+            }
+        }
+
+        function updateAnalytics() {
+            const rev = salesHistory.reduce((sum, s) => sum + s.total, 0);
+            document.getElementById('stat-revenue').innerText = `₨ ${rev.toFixed(2)}`;
+            document.getElementById('stat-orders').innerText = salesHistory.length;
+            document.getElementById('stat-low-stock').innerText = inventory.filter(i => i.stock < 15).length;
+        }
+    </script>
+</body>
+
+</html>
